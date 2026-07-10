@@ -1,0 +1,6 @@
+{
+  "name": "MD HOME SMART",
+  "description": "Thành viên của Vinhome - Nhà ở xã hội MD HOME SMART PHỐ HIẾN, Hưng Yên. Chất lượng, An tâm, Bền vững.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
