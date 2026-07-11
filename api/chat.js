@@ -22,6 +22,14 @@ PHONG CÁCH TRẢ LỜI:
 - Trả lời tối đa 3-4 câu, không dùng markdown phức tạp, emoji dùng vừa phải (không lạm dụng).`;
 
 async function callGemini(model, apiKey, contents) {
+  // Các model Gemini 3.x (VD: gemini-3.5-flash) bật "thinking" (suy nghĩ nội bộ) mặc định,
+  // và số token dùng để "suy nghĩ" cũng bị trừ vào maxOutputTokens — nếu để mặc định dễ bị
+  // cắt cụt câu trả lời thật. Với chatbot tư vấn cần nhanh & ngắn gọn, ta hạ mức thinking xuống thấp nhất.
+  const isGemini3 = model.startsWith('gemini-3');
+  const thinkingConfig = isGemini3
+    ? { thinkingLevel: 'low' }       // Gemini 3.x dùng thinkingLevel (low/medium/high)
+    : { thinkingBudget: 0 };          // Gemini 2.5 trở về trước dùng thinkingBudget (0 = tắt hẳn)
+
   return fetch(
     `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
     {
@@ -35,7 +43,8 @@ async function callGemini(model, apiKey, contents) {
         systemInstruction: { parts: [{ text: SYSTEM_INSTRUCTION }] },
         generationConfig: {
           temperature: 0.6,
-          maxOutputTokens: 300
+          maxOutputTokens: 800, // tăng đủ rộng để chừa chỗ cho cả phần thinking (nếu có) + câu trả lời thật
+          thinkingConfig
         }
       })
     }
@@ -96,9 +105,14 @@ export default async function handler(req, res) {
     }
 
     const data = await geminiRes.json();
-    const reply =
-      data?.candidates?.[0]?.content?.parts?.map(p => p.text || '').join('').trim() ||
-      'Trợ lý AI chưa có câu trả lời phù hợp cho câu hỏi này. Anh/Chị vui lòng để lại số điện thoại để được chuyên viên hỗ trợ trực tiếp!';
+    const finishReason = data?.candidates?.[0]?.finishReason;
+    let reply = data?.candidates?.[0]?.content?.parts?.map(p => p.text || '').join('').trim() || '';
+
+    // Nếu bị cắt giữa chừng (hết ngân sách token) hoặc không có nội dung, không hiện câu cụt cho khách.
+    if (!reply || (finishReason === 'MAX_TOKENS' && reply.length < 20)) {
+      console.error('Câu trả lời bị cắt hoặc rỗng. finishReason:', finishReason, 'reply:', reply);
+      reply = 'Câu hỏi này khá chi tiết, Trợ lý AI cần thêm thông tin để tư vấn chuẩn xác. Anh/Chị vui lòng liên hệ hotline 0904031123 hoặc để lại số điện thoại để chuyên viên hỗ trợ trực tiếp nhé!';
+    }
 
     return res.status(200).json({ reply, fallback: false });
   } catch (error) {
