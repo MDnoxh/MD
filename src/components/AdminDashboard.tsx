@@ -47,7 +47,10 @@ interface AdminDashboardProps {
   TABS: string[];
   adminUsers: Array<{email: string; password: string; role: string}>;
   setAdminUsers: React.Dispatch<React.SetStateAction<Array<{email: string; password: string; role: string}>>>;
+  currentAdminEmail: string;
 }
+
+const SUPER_ADMIN_ROLE = 'Quản trị viên tối cao (Super Admin)';
 
 export default function AdminDashboard({
   isOpen,
@@ -79,9 +82,21 @@ export default function AdminDashboard({
   setHiddenTabs,
   TABS,
   adminUsers,
-  setAdminUsers
+  setAdminUsers,
+  currentAdminEmail
 }: AdminDashboardProps) {
   const [activeSubTab, setActiveSubTab] = useState<'leads' | 'content' | 'jobs' | 'videos' | 'settings' | 'admins'>('leads');
+
+  // Chỉ Quản trị viên tối cao (Super Admin) mới được xem/quản lý danh sách admin khác.
+  const currentAdmin = adminUsers.find(u => u.email.toLowerCase() === currentAdminEmail.toLowerCase());
+  const isSuperAdmin = currentAdmin?.role === SUPER_ADMIN_ROLE;
+
+  // Nếu admin thường đang ở tab "admins" (VD: do state cũ còn sót lại) thì tự động đẩy về tab Khách Hàng.
+  React.useEffect(() => {
+    if (activeSubTab === 'admins' && !isSuperAdmin) {
+      setActiveSubTab('leads');
+    }
+  }, [activeSubTab, isSuperAdmin]);
   const [leadsSourceFilter, setLeadsSourceFilter] = useState<'all' | 'register' | 'contact' | 'chatbot'>('all');
   const [leadsSubTab, setLeadsSubTab] = useState<'local' | 'sheets'>('local');
 
@@ -413,17 +428,19 @@ export default function AdminDashboard({
               <span>Thiết Lập Menu & Live</span>
             </button>
 
-            <button 
-              onClick={() => setActiveSubTab('admins')}
-              className={`flex items-center gap-2 px-4 py-3 rounded-2xl text-xs font-black uppercase tracking-wider text-nowrap transition cursor-pointer ${
-                activeSubTab === 'admins' 
-                  ? 'bg-[#1a3c6e] text-white shadow-md' 
-                  : 'text-slate-600 hover:bg-slate-100'
-              }`}
-            >
-              <ShieldAlert size={15} />
-              <span>Phân Quyền Admin ({adminUsers.length})</span>
-            </button>
+            {isSuperAdmin && (
+              <button 
+                onClick={() => setActiveSubTab('admins')}
+                className={`flex items-center gap-2 px-4 py-3 rounded-2xl text-xs font-black uppercase tracking-wider text-nowrap transition cursor-pointer ${
+                  activeSubTab === 'admins' 
+                    ? 'bg-[#1a3c6e] text-white shadow-md' 
+                    : 'text-slate-600 hover:bg-slate-100'
+                }`}
+              >
+                <ShieldAlert size={15} />
+                <span>Phân Quyền Admin ({adminUsers.length})</span>
+              </button>
+            )}
 
             <div className="hidden md:block mt-auto p-4 border-t border-slate-100">
               <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-3 text-[10px] text-amber-800 font-sans leading-relaxed">
@@ -1131,7 +1148,7 @@ export default function AdminDashboard({
             )}
 
             {/* SUB-TAB: ADMINS & ROLE PERMISSIONS */}
-            {activeSubTab === 'admins' && (
+            {activeSubTab === 'admins' && isSuperAdmin && (
               <div className="space-y-6">
                 
                 <div className="border-b border-slate-100 pb-4">
