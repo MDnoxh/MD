@@ -64,9 +64,19 @@ export default function App() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const clickedImageRef = useRef<string | null>(null);
 
-  const [adminUsers, setAdminUsers] = useState<Array<{email: string; password: string; role: string}>>(() => {
+  // Đảm bảo tài khoản admin@mdhome.com luôn bị ẩn khỏi giao diện quản lý,
+  // kể cả với dữ liệu cũ (localStorage/Firebase) được lưu trước khi có tính năng ẩn tài khoản.
+  const HIDDEN_ADMIN_EMAILS = ['admin@mdhome.com'];
+  const normalizeAdminUsers = (list: Array<{email: string; password: string; role: string; hidden?: boolean}>) => {
+    if (!Array.isArray(list)) return list;
+    return list.map(u =>
+      HIDDEN_ADMIN_EMAILS.includes(u.email.toLowerCase()) ? { ...u, hidden: true } : u
+    );
+  };
+
+  const [adminUsers, setAdminUsers] = useState<Array<{email: string; password: string; role: string; hidden?: boolean}>>(() => {
     const defaultList = [
-      { email: 'admin@mdhome.com', password: 'mdhome2026', role: 'Quản trị viên tối cao (Super Admin)' },
+      { email: 'admin@mdhome.com', password: 'mdhome2026', role: 'Quản trị viên tối cao (Super Admin)', hidden: true },
       { email: 'minhducphohiennoxh@gmail.com', password: 'mdhome2026', role: 'Quản trị viên tối cao (Super Admin)' }
     ];
     if (typeof window !== 'undefined') {
@@ -79,7 +89,7 @@ export default function App() {
             if (!hasMinhDuc) {
               parsed.push({ email: 'minhducphohiennoxh@gmail.com', password: 'mdhome2026', role: 'Quản trị viên tối cao (Super Admin)' });
             }
-            return parsed;
+            return normalizeAdminUsers(parsed);
           }
         } catch (e) {
           console.error(e);
@@ -383,8 +393,9 @@ export default function App() {
             localStorage.setItem('adminLeads', JSON.stringify(cloudData.leads));
           }
           if (Array.isArray(cloudData.adminUsers) && cloudData.adminUsers.length > 0) {
-            setAdminUsers(cloudData.adminUsers);
-            localStorage.setItem('adminUsers', JSON.stringify(cloudData.adminUsers));
+            const normalized = normalizeAdminUsers(cloudData.adminUsers);
+            setAdminUsers(normalized);
+            localStorage.setItem('adminUsers', JSON.stringify(normalized));
           }
         }
       } catch (err) {
