@@ -89,6 +89,7 @@ export default function App() {
     return defaultList;
   });
   const [currentAdminEmail, setCurrentAdminEmail] = useState<string>('');
+  const cloudReadyRef = useRef(false);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -283,6 +284,7 @@ export default function App() {
     positions?: any;
     hiddenTabs?: any;
     leads?: any;
+    adminUsers?: any;
   }) => {
     try {
       const docRef = doc(db, 'md_home_config', 'settings');
@@ -380,9 +382,15 @@ export default function App() {
             setLeads(cloudData.leads);
             localStorage.setItem('adminLeads', JSON.stringify(cloudData.leads));
           }
+          if (Array.isArray(cloudData.adminUsers) && cloudData.adminUsers.length > 0) {
+            setAdminUsers(cloudData.adminUsers);
+            localStorage.setItem('adminUsers', JSON.stringify(cloudData.adminUsers));
+          }
         }
       } catch (err) {
         console.error('Không thể tải dữ liệu đồng bộ từ Firebase:', err);
+      } finally {
+        cloudReadyRef.current = true;
       }
     };
     syncFromFirebase();
@@ -401,6 +409,7 @@ export default function App() {
   // Debounced Cloud Sync trigger
   useEffect(() => {
     if (Object.keys(customText).length === 0 && Object.keys(customImages).length === 0) return;
+    if (!cloudReadyRef.current) return; // chờ tải xong dữ liệu cloud lần đầu, tránh ghi đè admin thật bằng dữ liệu mặc định
 
     const delayDebounceFn = setTimeout(() => {
       saveToFirebaseCloud({
@@ -409,12 +418,13 @@ export default function App() {
         videos,
         positions,
         hiddenTabs,
-        leads
+        leads,
+        adminUsers
       });
     }, 1500);
 
     return () => clearTimeout(delayDebounceFn);
-  }, [customImages, customText, videos, positions, hiddenTabs, leads]);
+  }, [customImages, customText, videos, positions, hiddenTabs, leads, adminUsers]);
 
   const fetchSheetLeads = async () => {
     setSheetLoading(true);
