@@ -9,7 +9,11 @@ interface Message {
   isForm?: boolean;
 }
 
-export default function Chatbot() {
+interface ChatbotProps {
+  onLeadSubmit?: (payload: { name: string; phone: string; needs: string; needsLoan: string }) => void | Promise<void>;
+}
+
+export default function Chatbot({ onLeadSubmit }: ChatbotProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([
     {
@@ -218,7 +222,7 @@ Bộ phận chuyên viên tư vấn chính thức của dự án MD HOME SMART P
     e.preventDefault();
     if (!leadForm.phone.trim()) return;
 
-    // Save lead to simulated database in localStorage
+    // Save lead to simulated database in localStorage (cache cục bộ cho riêng khung chat)
     const savedLeads = JSON.parse(localStorage.getItem('chatBotLeads') || '[]');
     const newLead = {
       ...leadForm,
@@ -227,6 +231,16 @@ Bộ phận chuyên viên tư vấn chính thức của dự án MD HOME SMART P
     };
     savedLeads.push(newLead);
     localStorage.setItem('chatBotLeads', JSON.stringify(savedLeads));
+
+    // ✅ Gửi lead lên Google Sheet + danh sách leads chung của Admin (qua App.tsx)
+    if (onLeadSubmit) {
+      onLeadSubmit({
+        name: leadForm.name,
+        phone: leadForm.phone,
+        needs: leadForm.needs,
+        needsLoan: leadForm.needsLoan
+      });
+    }
 
     // Clear active form and show confirmation
     setActiveFormIndex(null);
