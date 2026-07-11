@@ -180,7 +180,9 @@ Bộ phận chuyên viên tư vấn chính thức của dự án MD HOME SMART P
         });
         const data = await apiRes.json();
         botResponse = data.reply || 'Trợ lý AI chưa có câu trả lời phù hợp. Anh/Chị vui lòng để lại số điện thoại để được chuyên viên hỗ trợ trực tiếp!';
-        shouldShowInlineForm = true;
+        // Không tự động hiện form — chỉ trả lời tự nhiên như nhân viên tư vấn thật.
+        // Form chỉ hiện khi khách chủ động hỏi trúng các chủ đề đăng ký/liên hệ (đã xử lý ở các nhánh phía trên).
+        shouldShowInlineForm = false;
       } catch (err) {
         console.error('Lỗi gọi /api/chat:', err);
         botResponse = 'Trợ lý AI đang tạm thời gián đoạn kết nối. Anh/Chị vui lòng để lại số điện thoại, chuyên viên sẽ liên hệ tư vấn trực tiếp ngay!';
