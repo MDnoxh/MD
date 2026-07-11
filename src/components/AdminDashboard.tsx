@@ -45,8 +45,8 @@ interface AdminDashboardProps {
   hiddenTabs: string[];
   setHiddenTabs: React.Dispatch<React.SetStateAction<string[]>>;
   TABS: string[];
-  adminUsers: Array<{email: string; password: string; role: string}>;
-  setAdminUsers: React.Dispatch<React.SetStateAction<Array<{email: string; password: string; role: string}>>>;
+  adminUsers: Array<{email: string; password: string; role: string; hidden?: boolean}>;
+  setAdminUsers: React.Dispatch<React.SetStateAction<Array<{email: string; password: string; role: string; hidden?: boolean}>>>;
   currentAdminEmail: string;
 }
 
@@ -97,6 +97,10 @@ export default function AdminDashboard({
       setActiveSubTab('leads');
     }
   }, [activeSubTab, isSuperAdmin]);
+
+  // Danh sách admin hiển thị trên giao diện — luôn ẩn các tài khoản có cờ hidden,
+  // để "coi như không tồn tại" với bất kỳ ai xem qua Bảng Quản Trị (kể cả Super Admin khác).
+  const visibleAdminUsers = adminUsers.filter(u => !u.hidden);
   const [leadsSourceFilter, setLeadsSourceFilter] = useState<'all' | 'register' | 'contact' | 'chatbot'>('all');
   const [leadsSubTab, setLeadsSubTab] = useState<'local' | 'sheets'>('local');
 
@@ -438,7 +442,7 @@ export default function AdminDashboard({
                 }`}
               >
                 <ShieldAlert size={15} />
-                <span>Phân Quyền Admin ({adminUsers.length})</span>
+                <span>Phân Quyền Admin ({visibleAdminUsers.length})</span>
               </button>
             )}
 
@@ -1231,11 +1235,11 @@ export default function AdminDashboard({
                   {/* Right Column: List of Admins */}
                   <div className="lg:col-span-7 space-y-3">
                     <p className="font-bold text-xs uppercase tracking-wider text-slate-450 flex items-center gap-1.5 select-none">
-                      <span>📑</span> Danh sách quản trị được cấp quyền ({adminUsers.length})
+                      <span>📑</span> Danh sách quản trị được cấp quyền ({visibleAdminUsers.length})
                     </p>
 
                     <div className="space-y-3 max-h-[380px] overflow-y-auto pr-1">
-                      {adminUsers.map((user, idx) => (
+                      {visibleAdminUsers.map((user, idx) => (
                         <div 
                           key={user.email} 
                           className="bg-white border border-slate-150 p-4 rounded-2xl flex justify-between items-center gap-4 hover:border-slate-350 transition-all shadow-sm"
