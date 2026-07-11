@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 interface LoginModalProps {
     onClose: () => void;
     onLoginSuccess: (email: string) => void;
-    adminUsers: Array<{email: string; password: string; role: string}>;
+    adminUsers: Array<{email: string; password: string; role: string; hidden?: boolean}>;
 }
 
 export default function LoginModal({ onClose, onLoginSuccess, adminUsers }: LoginModalProps) {
