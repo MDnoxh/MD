@@ -2,7 +2,9 @@
 // Gọi Gemini API ở phía SERVER để bảo vệ GEMINI_API_KEY (không lộ ra trình duyệt).
 // Dùng cho các câu hỏi "tư duy" mà chatbot rule-based (Chatbot.tsx) không có kịch bản trả lời sẵn.
 
-const GEMINI_MODEL = 'gemini-2.5-flash';
+// Danh sách model thử lần lượt — nếu model đầu bị Google ngừng/đổi tên đột ngột (404),
+// tự động chuyển sang model dự phòng thay vì làm sập chatbot.
+const GEMINI_MODELS = ['gemini-3.5-flash', 'gemini-flash-latest', 'gemini-2.5-flash'];
 
 const SYSTEM_INSTRUCTION = `Bạn là Trợ lý AI tư vấn chính thức của dự án Nhà ở xã hội "MD HOME SMART Phố Hiến" tại Phố Hiến, Hưng Yên.
 
@@ -12,6 +14,27 @@ Nhiệm vụ:
 - Nếu khách hỏi ngoài phạm vi bất động sản/dự án (hỏi kiến thức chung, hỏi han xã giao...), vẫn trả lời tự nhiên, hữu ích, nhưng khéo léo lái lại chủ đề dự án nếu phù hợp.
 - Không bịa số liệu cụ thể (giá bán, ngày bàn giao chính xác...) nếu không chắc chắn — thay vào đó khuyên khách để lại số điện thoại để chuyên viên xác nhận.
 - Trả lời tối đa 3-4 câu, không dùng markdown phức tạp, có thể dùng emoji vừa phải.`;
+
+async function callGemini(model, apiKey, contents) {
+  return fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-goog-api-key': apiKey
+      },
+      body: JSON.stringify({
+        contents,
+        systemInstruction: { parts: [{ text: SYSTEM_INSTRUCTION }] },
+        generationConfig: {
+          temperature: 0.6,
+          maxOutputTokens: 300
+        }
+      })
+    }
+  );
+}
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -48,28 +71,18 @@ export default async function handler(req, res) {
     }
     contents.push({ role: 'user', parts: [{ text: message.slice(0, 1000) }] });
 
-    const geminiRes = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`,
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-goog-api-key': apiKey
-        },
-        body: JSON.stringify({
-          contents,
-          systemInstruction: { parts: [{ text: SYSTEM_INSTRUCTION }] },
-          generationConfig: {
-            temperature: 0.6,
-            maxOutputTokens: 300
-          }
-        })
-      }
-    );
+    let geminiRes = null;
+    let lastErrText = '';
+    for (const model of GEMINI_MODELS) {
+      geminiRes = await callGemini(model, apiKey, contents);
+      if (geminiRes.ok) break; // thành công, dừng thử tiếp
+      lastErrText = await geminiRes.text();
+      console.error(`Model ${model} lỗi (${geminiRes.status}):`, lastErrText);
+      // Chỉ thử model kế tiếp khi lỗi do model không khả dụng (404); các lỗi khác (401, 429...) dừng ngay.
+      if (geminiRes.status !== 404) break;
+    }
 
-    if (!geminiRes.ok) {
-      const errText = await geminiRes.text();
-      console.error('Lỗi gọi Gemini API:', geminiRes.status, errText);
+    if (!geminiRes || !geminiRes.ok) {
       return res.status(200).json({
         reply: 'Trợ lý AI đang tạm thời gián đoạn kết nối. Anh/Chị vui lòng để lại số điện thoại, chuyên viên sẽ liên hệ tư vấn trực tiếp ngay!',
         fallback: true
