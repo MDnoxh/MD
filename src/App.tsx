@@ -214,6 +214,32 @@ export default function App() {
     setRegSuccess(true);
   };
 
+  // Xử lý lead thu được từ Chatbot AI — trước đây chatbot chỉ lưu localStorage riêng của trình duyệt,
+  // KHÔNG hề gửi lên Google Sheet hay danh sách leads chung của Admin. Nay đồng bộ đầy đủ như 3 form kia.
+  const handleChatbotLead = async (payload: { name: string; phone: string; needs: string; needsLoan: string }) => {
+    const detailsVal = `Nhu cầu: ${payload.needs}. Cần tư vấn vay vốn: ${payload.needsLoan}`;
+    const newL: Lead = {
+      id: 'lead_' + Date.now() + Math.random().toString(36).substr(2, 5),
+      name: payload.name || 'Khách qua Chatbot AI',
+      phone: payload.phone,
+      source: 'Liên Hệ',
+      details: detailsVal,
+      date: new Date().toLocaleString('vi-VN'),
+    };
+    const updated = [newL, ...leads];
+    setLeads(updated);
+    localStorage.setItem('adminLeads', JSON.stringify(updated));
+
+    // ✅ GỬI LÊN GOOGLE SHEET
+    await sendToSheet({
+      source: 'Liên Hệ',
+      name: payload.name || 'Khách qua Chatbot AI',
+      phone: payload.phone,
+      interests: payload.needs,
+      note: `Cần tư vấn vay vốn: ${payload.needsLoan} (gửi từ Chatbot AI)`,
+    });
+  };
+
   const handleContactSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!contactName || !contactPhone) return;
@@ -2784,7 +2810,7 @@ export default function App() {
       )}
       <Footer setActiveTab={setActiveTab} onLogin={handleLogin} hiddenTabs={hiddenTabs} />
       <FloatingButtons onZaloClick={() => setShowZaloQrModal(true)} />
-      <Chatbot />
+      <Chatbot onLeadSubmit={handleChatbotLead} />
       {/* Admin Panel */}
       {showLoginModal && (
         <LoginModal 
