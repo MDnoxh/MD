@@ -49,7 +49,7 @@ export default function Chatbot() {
     { label: '👨‍💼 Liên hệ chuyên viên', value: 'gặp người thật' }
   ];
 
-  const handleSendText = (text: string) => {
+  const handleSendText = async (text: string) => {
     if (!text.trim()) return;
 
     // Add user message
@@ -61,6 +61,7 @@ export default function Chatbot() {
     const lowercaseMsg = text.toLowerCase();
     let botResponse = '';
     let shouldShowInlineForm = false;
+    let useRealAI = false;
 
     // Rule-based matching logic following the detailed system prompt
     if (
@@ -165,10 +166,36 @@ Trợ lý AI muốn xin thêm thông tin để tư vấn chuẩn xác nhất:
 
 Bộ phận chuyên viên tư vấn chính thức của dự án MD HOME SMART Phố Hiến sẽ liên hệ trực tiếp cho Anh/Chị trong vòng tối đa 10 phút để gửi bảng giá, hướng dẫn hồ sơ NOXH & phương án vay ngân hàng chi tiết nhất. Cảm ơn Anh/Chị! 🤝`;
     }
-    // Out of scope requests
+    // Out of scope requests -> hỏi Trợ lý AI thật (Gemini) thay vì câu trả lời cứng
     else {
-      botResponse = `Cảm ơn Anh/Chị đã trao đổi. Là trợ lý AI chính thức chuyên biệt của dự án **MD HOME SMART Phố Hiến**, tôi tập trung hỗ trợ các vấn đề xoay quanh Nhà ở xã hội, quy trình mua nhà, hồ sơ chuẩn bị và hỗ trợ vay vốn của dự án.\n\nThông tin này cụ thể chi tiết hơn cần được xác nhận từ bộ phận trực tiếp. Anh/chị vui lòng cập nhật nhanh thông tin số điện thoại cùng họ tên dưới đây để nhận phản hồi từ chuyên viên tư vấn nhanh nhất.`;
-      shouldShowInlineForm = true;
+      useRealAI = true;
+    }
+
+    if (useRealAI) {
+      try {
+        const apiRes = await fetch('/api/chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ message: text, history: newMessages.slice(0, -1) })
+        });
+        const data = await apiRes.json();
+        botResponse = data.reply || 'Trợ lý AI chưa có câu trả lời phù hợp. Anh/Chị vui lòng để lại số điện thoại để được chuyên viên hỗ trợ trực tiếp!';
+        shouldShowInlineForm = true;
+      } catch (err) {
+        console.error('Lỗi gọi /api/chat:', err);
+        botResponse = 'Trợ lý AI đang tạm thời gián đoạn kết nối. Anh/Chị vui lòng để lại số điện thoại, chuyên viên sẽ liên hệ tư vấn trực tiếp ngay!';
+        shouldShowInlineForm = true;
+      }
+
+      setIsTyping(false);
+      const updatedMessagesAI = [...newMessages, { sender: 'bot' as const, text: botResponse }];
+      if (shouldShowInlineForm) {
+        setMessages([...newMessages, { sender: 'bot' as const, text: botResponse }, { sender: 'bot' as const, text: '', isForm: true }]);
+        setActiveFormIndex(updatedMessagesAI.length);
+      } else {
+        setMessages(updatedMessagesAI);
+      }
+      return;
     }
 
     setTimeout(() => {
